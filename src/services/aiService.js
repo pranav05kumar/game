@@ -2,7 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Standard stable SDK: @google/generative-ai
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-const modelId = "gemini-1.5-flash"; // Using 1.5-flash for maximum stability/speed
+// Verified available model for this project
+const modelId = "gemini-2.0-flash";
 
 // Helper to strip markdown code blocks and parse JSON
 const cleanJSON = (text) => {
