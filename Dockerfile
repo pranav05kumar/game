@@ -12,6 +12,10 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Pass API Key at build time
+ARG VITE_GEMINI_API_KEY
+ENV VITE_GEMINI_API_KEY=$VITE_GEMINI_API_KEY
+
 # Build the application
 RUN npm run build
 
