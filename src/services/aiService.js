@@ -1,19 +1,23 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize the client
-// Using the new SDK pattern: new GoogleGenAI({ apiKey: ... })
-const genAI = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-const modelId = "gemini-2.0-flash"; // Updated to current stable version
+// Standard stable SDK: @google/generative-ai
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+const modelId = "gemini-1.5-flash"; // Using 1.5-flash for maximum stability/speed
 
-// Helper to strip markdown code blocks if present
+// Helper to strip markdown code blocks and parse JSON
 const cleanJSON = (text) => {
+    if (!text) return {};
     try {
-        // Remove markdown code blocks
         let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
         return JSON.parse(clean);
     } catch (e) {
         console.error("JSON Parse Error:", e, "Input:", text);
-        throw e;
+        // Fallback: try to find anything that looks like JSON
+        const match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+            try { return JSON.parse(match[0]); } catch (inner) { /* ignore */ }
+        }
+        return {};
     }
 };
 
@@ -21,35 +25,29 @@ export const generateEvolution = async (score, currentForm) => {
     try {
         const prompt = `
       You are the Evolution Engine for a cyber-snake game. 
-      The player has reached a score of ${score}. 
-      Current form: ${JSON.stringify(currentForm)}.
-      
-      Generate a new evolution stage for the snake.
-      Return ONLY a JSON object with this structure:
+      Score: ${score}. Current form: ${JSON.stringify(currentForm)}.
+      Generate a new evolution.
+      Return ONLY a JSON object:
       {
         "name": "Creative Name",
-        "description": "Short, atmospheric description (max 15 words)",
-        "ability": "Name of a passive ability (e.g., Speed Boost, Shield, Point Multiplier)",
+        "description": "Short description (max 15 words)",
+        "ability": "Ability name",
         "visuals": {
-          "headColor": "Hex Code",
-          "bodyColor": "Hex Code (should be complementary)"
+          "headColor": "Hex",
+          "bodyColor": "Hex"
         }
       }
     `;
 
-        const response = await genAI.models.generateContent({
-            model: modelId,
-            contents: prompt,
-            config: { responseMimeType: "application/json" }
-        });
-
-        return cleanJSON(response.text);
+        const model = genAI.getGenerativeModel({ model: modelId });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return cleanJSON(response.text());
     } catch (error) {
         console.error("Evolution generation failed:", error);
-        // Fallback
         return {
-            name: "Glitch Serpent",
-            description: "System error detected. Safe mode engaged.",
+            name: "Fallback Serpent",
+            description: "Safe mode engaged.",
             ability: "Stability",
             visuals: { headColor: "#FFFFFF", bodyColor: "#888888" }
         };
@@ -59,33 +57,28 @@ export const generateEvolution = async (score, currentForm) => {
 export const generateBiome = async (level) => {
     try {
         const prompt = `
-      You are the World Architect for a cyber-snake game.
-      The player has reached Level ${level}.
-      
+      You are the World Architect for a cyber-snake game. Level ${level}.
       Generate a new themed biome.
-      Return ONLY a JSON object with this structure:
+      Return ONLY a JSON object:
       {
-        "name": "Creative Biome Name",
-        "description": "Atmospheric description (max 10 words)",
-        "bgColor": "Hex Code (very dark for contrast)",
-        "foodColor": "Hex Code (bright neon)"
+        "name": "Biome Name",
+        "description": "Short description",
+        "bgColor": "Hex Code (dark)",
+        "foodColor": "Hex Code (bright)"
       }
     `;
 
-        const response = await genAI.models.generateContent({
-            model: modelId,
-            contents: prompt,
-            config: { responseMimeType: "application/json" }
-        });
-
-        return cleanJSON(response.text);
+        const model = genAI.getGenerativeModel({ model: modelId });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return cleanJSON(response.text());
     } catch (error) {
         console.error("Biome generation failed:", error);
         return {
-            name: "Backup Sector",
-            description: "Emergency power only.",
-            bgColor: "#050505",
-            foodColor: "#00FF00"
+            name: "Digital Void",
+            description: "Emergency power.",
+            bgColor: "#060608",
+            foodColor: "#00E5FF"
         };
     }
 };
@@ -93,21 +86,15 @@ export const generateBiome = async (level) => {
 export const getGuideMessage = async (event, context) => {
     try {
         const prompt = `
-      You are "Helix", a witty AI companion in a snake game.
-      Event: ${event}
-      Context: ${JSON.stringify(context)}
-      
-      Provide a short, 1-sentence comment or tip. 
-      Be encouraging but slightly chaotic/cyberpunk.
-      Max 20 words.
+      You are "Helix", a witty AI companion.
+      Event: ${event}. Context: ${JSON.stringify(context)}.
+      Short 1-sentence tip (max 20 words). Witty/Cyberpunk.
     `;
 
-        const response = await genAI.models.generateContent({
-            model: modelId,
-            contents: prompt
-        });
-
-        return response.text;
+        const model = genAI.getGenerativeModel({ model: modelId });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
     } catch (error) {
         console.error("Guide generation failed:", error);
         return "Signal lost...";
